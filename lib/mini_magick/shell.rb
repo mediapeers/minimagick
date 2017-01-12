@@ -49,22 +49,20 @@ module MiniMagick
     def execute_posix_spawn(command, options = {})
       require "posix-spawn"
 
-      pid = -1
-      begin
-        Timeout.timeout(MiniMagick.timeout) do
-          pid, stdin, stdout, stderr = POSIX::Spawn.popen4(*command)
-          [stdin, stdout, stderr].each(&:binmode)
-          stdin.write(options[:stdin].to_s)
-          out = stdout.read
-          err = stderr.read
-          Process.waitpid(pid)
+      pid = nil
+      Timeout.timeout(MiniMagick.timeout) do
+        pid, stdin, stdout, stderr = POSIX::Spawn.popen4(*command)
+        [stdin, stdout, stderr].each(&:binmode)
+        stdin.write(options[:stdin].to_s)
+        out = stdout.read
+        err = stderr.read
+        Process.waitpid(pid)
 
-          [out, err, $?]
-        end
-      rescue => e
-        Process.kill('HUP', pid)
-        raise e
+        [out, err, $?]
       end
+    rescue => e
+      Process.kill('TERM', pid) if pid
+      raise e
     end
 
     def log(command, &block)
